@@ -205,14 +205,14 @@ def call_api_guia_with_retry(prompt, lang):
     system_prompt = os.getenv('PROMP_GUIA_ENG') if lang == "English" else os.getenv('PROMP_GUIA_ENG')
 
     headers = {
-        "x-goog-api-key": f"Bearer {os.getenv('API_GEMINI_KEY')}",
+        "x-goog-api-key": os.getenv('API_GEMINI_KEY'),
         "Content-Type": "application/json",
     }
 
     payload = {
         "contents": [
             {
-                "role": "system",
+                "role": "user",
                 "parts": [
                     {
                         "text": system_prompt
