@@ -11,7 +11,7 @@ def lambda_handler(event, context):
     
     if len(records) == 0:
         return
-    
+        
     for record in records:
         process_queue(record)
         
@@ -104,7 +104,6 @@ def generate_resume(content, lang, subsection):
     
     print(f'GuIA: Generate resume by: {subsection}')
     
-    #response = call_api_guia(prompt, lang)
     response = call_api_guia_with_retry(prompt, lang)
     
     return response
@@ -158,35 +157,6 @@ def update_guide(project_id, asset_parent, asset_id, content, success, isFinal, 
     else:
         print(f'GuIA: Updated failed project_id = {project_id}, asset_id = {asset_id}')
         print(response.text)
-
-def call_api_guia(prompt, lang):
-    
-    system_prompt = os.getenv('PROMP_GUIA_ENG') if lang == "English" else os.getenv('PROMP_GUIA_ENG')
-    
-    headers = {
-        "Content-Type": "application/json",
-    }
-    
-    payload = {
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": prompt }
-        ]
-    }
-    
-    print('GuIA: Start call API GuIA')
-    api_guia = os.getenv('API_GUIA')
-    response = requests.post(f'{api_guia}/completions', headers=headers, json=payload)
-    
-    print(f'GuIA: End call API GuIA with: {response.text}')
-    
-    if response.status_code == 200:
-        content = response.json()['choices'][0]['message']['content']
-        print(f'GuIA: Generated success. {content}')
-        return content
-    else:
-        print(f'GuIA: Generated failed: {response.text}')
-        return None
         
 def restore_project(project_id, asset_parent, token):
     headers = {
@@ -233,25 +203,39 @@ def update_project_guide_running(project_id, guide_running, token):
 def call_api_guia_with_retry(prompt, lang):
     
     system_prompt = os.getenv('PROMP_GUIA_ENG') if lang == "English" else os.getenv('PROMP_GUIA_ENG')
-    
+
     headers = {
+        "x-goog-api-key": f"Bearer {os.getenv('API_GEMINI_KEY')}",
         "Content-Type": "application/json",
     }
-    
+
     payload = {
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": prompt }
+        "contents": [
+            {
+                "role": "system",
+                "parts": [
+                    {
+                        "text": system_prompt
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
         ]
     }
     
     retries = 0
     print(f'GuIA: Calling API with retry: {retries}')
-    api_guia = os.getenv('API_GUIA')
     while retries < MAX_RETRIES:
-        response = requests.post(f'{api_guia}/completions', headers=headers, json=payload)
+        response = requests.post('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', headers=headers, json=payload)
         if response.status_code == 200:
-            content = response.json()['choices'][0]['message']['content']
+            content = response.json()['candidates'][0]['content']['parts'][0]['text']
             print(f'GuIA: Generated success. {content}')
             return content
         else:
